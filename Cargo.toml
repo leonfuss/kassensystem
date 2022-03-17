@@ -9,6 +9,14 @@ edition = "2021"
 # Run Dev env:
 #  cargo watch -x check -x test -x run
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "ausgleichende_gerechtigkeit"
+
 [dependencies]
     actix-web =  "4"
     tokio = { version = "1", features = ["macros" , "rt-multi-thread"] }
+    reqwest = "0.11"

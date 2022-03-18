@@ -62,7 +62,7 @@ jobs:
 
       - name: migrate database
         run: |
-          sudo apt-get install libqp-dev -y 
+          sudo apt-get install libpq-dev -y 
           SKIP_DOCKER=true ./scripts/init_db.sh
 
       - name: run cargo test 
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
           components: rustfmt
       - uses: actions-rs/cargo@v1
@@ -134,7 +134,7 @@ jobs:
 
       - name: migrate database
         run: |
-          sudo apt-get install libqp-dev -y 
+          sudo apt-get install libpq-dev -y 
           SKIP_DOCKER=true ./scripts/init_db.sh
 
       - name: run clippy 
@@ -191,10 +191,10 @@ jobs:
 
       - name: migrate database
         run: |
-          sudo apt-get install libqp-dev -y 
+          sudo apt-get install libpq-dev -y 
           SKIP_DOCKER=true ./scripts/init_db.sh
 
       - name: run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with: 
-          args: '--ignore-tests --avoid-cfd-tarpaulin'
+          args: '--ignore-tests --avoid-cfg-tarpaulin'

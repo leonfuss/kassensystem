@@ -1,10 +1,19 @@
+use ausgleichende_gerechtigkeit::configuration::{DatabaseSettings, Settings};
+use sqlx::{Executor, PgPool};
+
+#[derive(Debug)]
+pub struct TestApp {
+    pub address: String,
+    pub db_pool: PgPool,
+}
+
 #[tokio::test]
 async fn health_check_works() {
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let response = client
-        .get(&format!("{}/health_check", app_address))
+        .get(&format!("{}/health_check", &app.address))
         .send()
         .await
         .expect("Failed to execute request");
@@ -15,12 +24,12 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn create_user_returns_a_200_for_vaild_form_data() {
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let body = "matrikelnummer=6083015&email=max%40student.uni-tuebingen.de&name=Max%20Muster";
     let response = client
-        .post(&format!("{}/user/create", app_address))
+        .post(&format!("{}/user/create", &app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -28,11 +37,20 @@ async fn create_user_returns_a_200_for_vaild_form_data() {
         .expect("Failed to execute request");
 
     assert_eq!(200, response.status().as_u16());
+
+    let saved = sqlx::query!("SELECT email, name, matrikelnummer FROM users")
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("Failed to fetch saved user");
+
+    assert_eq!(saved.email, "max@student.uni-tuebingen.de");
+    assert_eq!(saved.name, "Max Muster");
+    assert_eq!(saved.matrikelnummer, 6083015);
 }
 
 #[tokio::test]
 async fn create_user_returns_a_400_when_data_is_missing() {
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let test_cases = vec![
@@ -56,7 +74,7 @@ async fn create_user_returns_a_400_when_data_is_missing() {
 
     for (invalid_body, error_message) in test_cases {
         let response = client
-            .post(&format!("{}/user/create", app_address))
+            .post(&format!("{}/user/create", &app.address))
             .header("content-type", "application/x-www-form-urlencoded")
             .body(invalid_body)
             .send()
@@ -72,14 +90,46 @@ async fn create_user_returns_a_400_when_data_is_missing() {
     }
 }
 
-fn spawn_app() -> String {
+async fn spawn_app() -> TestApp {
     let listener =
-        std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind to random port");
-
+        std::net::TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port");
     let port = listener.local_addr().unwrap().port();
-    let server = ausgleichende_gerechtigkeit::startup::run(listener).expect("Failed to bind address");
+    let address = format!("http://127.0.0.1:{}", port);
+
+    // random database name for each test to isolate tests
+    let mut configuration = Settings::new().expect("Failed to read configuration");
+    configuration.database.database_name = uuid::Uuid::new_v4().to_string();
+
+    let connection_pool = configure_database(&configuration.database).await;
+
+    let server = ausgleichende_gerechtigkeit::startup::run(listener, connection_pool.clone())
+        .expect("Failed to bind address");
 
     let _ = tokio::spawn(server);
 
-    format!("http://127.0.0.1:{}", port)
+    TestApp {
+        address,
+        db_pool: connection_pool,
+    }
+}
+
+async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    let connection = PgPool::connect(&config.connection_string_without_db())
+        .await
+        .expect("Failed to connect to postgres");
+    connection
+        .execute(format!(r#"CREATE DATABASE "{}"; "#, config.database_name).as_str())
+        .await
+        .expect("Failed to create database");
+
+    // Migrate Database
+    let connection_pool = PgPool::connect(&config.connection_string())
+        .await
+        .expect("Failed to connect to Postgres.");
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .expect("Failed to migrate database");
+
+    connection_pool
 }

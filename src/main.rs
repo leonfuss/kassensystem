@@ -1,9 +1,14 @@
-use std::net::TcpListener;
+use ausgleichende_gerechtigkeit::{configuration::Settings, startup};
 
-use ausgleichende_gerechtigkeit::startup;
+use sqlx::PgPool;
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    let listener = TcpListener::bind("127.0.0.1:8000").expect("Failed to bind port");
-    startup::run(listener)?.await
+    let configuration = Settings::new().expect("Failed to load configuration");
+    let connection_pool = PgPool::connect(&configuration.database.connection_string())
+        .await
+        .expect("Failed to connect to postgres");
+    let listener = configuration.tcp_listener()?;
+
+    startup::run(listener, connection_pool)?.await
 }

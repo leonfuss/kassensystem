@@ -28,13 +28,17 @@ DB_NAME="${POSTGRES_DB:=kassensystem}"
 DB_PORT="${POSTGRES_PORT:=5432}"
 
 # lauch postgres using docker
-docker run \
-    -e POSTGRES_USER=${DB_USER} \
-    -e POSTGRES_PASSWORD=${DB_PASSWORT} \
-    -e POSTGRES_DB=${DB_NAME} \
-    -p "${DB_PORT}":5432 \
-    -d postgres \
-    postgres -N 1000 # increase max connection number for testing
+# skips if postgres docker instance is already running
+if [[ -z "${SKIP_DOCKER}" ]]
+then
+    docker run \
+        -e POSTGRES_USER=${DB_USER} \
+        -e POSTGRES_PASSWORD=${DB_PASSWORT} \
+        -e POSTGRES_DB=${DB_NAME} \
+        -p "${DB_PORT}":5432 \
+        -d postgres \
+        postgres -N 1000 # increase max connection number for testing
+fi
 
 # Keepp pinging postgres until it is ready to accept commands
 export PGPASSWORD="${DB_PASSWORT}"
@@ -43,7 +47,10 @@ until psql -h "localhost" -U "${DB_USER}" -p "${DB_PORT}" -d "postgres" -c '\q';
     sleep 1 
 done
 
->&2 echo "Postgres is up and running on port ${DB_PORT}!"
+>&2 echo "Postgres is up and running on port ${DB_PORT}! - running migrations now"
 
 export DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORT}@localhost:${DB_PORT}/${DB_NAME}
 sqlx database create
+sqlx migrate run
+
+>&2 echo "Postgres hat been migrated, ready to go!"

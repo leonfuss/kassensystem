@@ -25,5 +25,7 @@ name = "ausgleichende_gerechtigkeit"
     config = "0.12"
     uuid = { version = "0.8.1", features = ["v4"]}
     chrono = "0.4.15"
-    log = "0.4.14"
-    env_logger = "0.9"
+    tracing = { version = "0.1", features = ["log"]}
+    tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"]}
+    tracing-bunyan-formatter = "0.3"
+    tracing-log = "0.1"

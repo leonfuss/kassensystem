@@ -17,8 +17,9 @@ pub struct DatabaseSettings {
 
 impl Settings {
     pub fn new() -> Result<Self, config::ConfigError> {
-        // Creates new Settings struct from Configuration top-level file named "configuration"
-        // every format that is supported by rs-config will parse
+        // Creates new Settings struct from Configuration top-level file named
+        // "configuration" every format that is supported by rs-config will
+        // parse
         config::Config::builder()
             .add_source(config::File::with_name("configuration"))
             .build()?
@@ -40,9 +41,6 @@ impl DatabaseSettings {
     }
 
     pub fn connection_string_without_db(&self) -> String {
-        format!(
-            "postgres://{}:{}@{}:{}",
-            self.username, self.password, self.host, self.port
-        )
+        format!("postgres://{}:{}@{}:{}", self.username, self.password, self.host, self.port)
     }
 }

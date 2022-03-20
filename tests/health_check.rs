@@ -54,19 +54,10 @@ async fn create_user_returns_a_400_when_data_is_missing() {
     let client = reqwest::Client::new();
 
     let test_cases = vec![
-        (
-            "email=max%40student.uni-tuebingen.de&name=max%20muster",
-            "missing matrikelnummer",
-        ),
+        ("email=max%40student.uni-tuebingen.de&name=max%20muster", "missing matrikelnummer"),
         ("matrikelnummer=6083015&name=max%20muster", "missing email"),
-        (
-            "matrikelnummer=6083015&email=max%40student.uni-tuebingen.de",
-            "missing name",
-        ),
-        (
-            "email=max%40student.uni-tuebingen.de",
-            "missing name and matrikelnummer",
-        ),
+        ("matrikelnummer=6083015&email=max%40student.uni-tuebingen.de", "missing name"),
+        ("email=max%40student.uni-tuebingen.de", "missing name and matrikelnummer"),
         ("matrikelnummer=6083015", "missing name and email"),
         ("name=max%20muster", "missing email and matrikelnummer"),
         ("", "missing all"),
@@ -107,10 +98,7 @@ async fn spawn_app() -> TestApp {
 
     let _ = tokio::spawn(server);
 
-    TestApp {
-        address,
-        db_pool: connection_pool,
-    }
+    TestApp { address, db_pool: connection_pool }
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
@@ -123,13 +111,9 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to create database");
 
     // Migrate Database
-    let connection_pool = PgPool::connect(&config.connection_string())
-        .await
-        .expect("Failed to connect to Postgres.");
-    sqlx::migrate!("./migrations")
-        .run(&connection_pool)
-        .await
-        .expect("Failed to migrate database");
+    let connection_pool =
+        PgPool::connect(&config.connection_string()).await.expect("Failed to connect to Postgres.");
+    sqlx::migrate!("./migrations").run(&connection_pool).await.expect("Failed to migrate database");
 
     connection_pool
 }

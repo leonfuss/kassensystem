@@ -1,6 +1,7 @@
 use actix_web::{post, web, HttpResponse};
 use chrono::Utc;
 use sqlx::PgPool;
+use tracing::Instrument;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
@@ -16,14 +17,15 @@ pub async fn create_user(
     db_pool: web::Data<PgPool>,
 ) -> HttpResponse {
     let request_id = uuid::Uuid::new_v4();
-    log::info!(
-        "request_id {} - Adding '{}-{}<{}>' as new user",
-        request_id,
-        form.matrikelnummer,
-        form.name,
-        form.email
+    let request_span = tracing::info_span!(
+        "Adding a new user",
+            %request_id,
+            user_email = %form.email,
+            user_matrikelnummer = %form.matrikelnummer,
+            user_name = %form.name
     );
-    log::info!("request_id {}, Saving new user details in the databse", request_id);
+    let _request_span_guard = request_span.enter();
+    let query_span = tracing::info_span!("Saving new user datails in the database");
 
     match sqlx::query!(
         r#"
@@ -37,14 +39,16 @@ pub async fn create_user(
         Utc::now()
     )
     .execute(db_pool.get_ref())
+    // attacht tracing instruments
+    .instrument(query_span)
     .await
     {
         Ok(_) => {
-            log::info!("request_id {}, New users details have been saved", request_id);
+            tracing::info!("request_id {}, New users details have been saved", request_id);
             HttpResponse::Ok().finish()
         }
         Err(e) => {
-            log::error!("request_id {}, Failed to execute query: {:?}", request_id, e);
+            tracing::error!("Failed to execute query: {:?}", e);
             HttpResponse::InternalServerError().finish()
         }
     }

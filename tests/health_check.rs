@@ -1,5 +1,23 @@
-use ausgleichende_gerechtigkeit::configuration::{DatabaseSettings, Settings};
+use ausgleichende_gerechtigkeit::{
+    configuration::{DatabaseSettings, Settings},
+    telemetry::{get_subscriber, init_subscriber},
+};
+use once_cell::sync::Lazy;
+use secrecy::ExposeSecret;
 use sqlx::{Executor, PgPool};
+
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let default_filter_level = "info".to_string();
+    let subscriber_name = "test".to_string();
+
+    if std::env::var("TEST_LOG").is_ok() {
+        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
+        init_subscriber(subscriber);
+    } else {
+        let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
+        init_subscriber(subscriber);
+    }
+});
 
 #[derive(Debug)]
 pub struct TestApp {
@@ -54,10 +72,19 @@ async fn create_user_returns_a_400_when_data_is_missing() {
     let client = reqwest::Client::new();
 
     let test_cases = vec![
-        ("email=max%40student.uni-tuebingen.de&name=max%20muster", "missing matrikelnummer"),
+        (
+            "email=max%40student.uni-tuebingen.de&name=max%20muster",
+            "missing matrikelnummer",
+        ),
         ("matrikelnummer=6083015&name=max%20muster", "missing email"),
-        ("matrikelnummer=6083015&email=max%40student.uni-tuebingen.de", "missing name"),
-        ("email=max%40student.uni-tuebingen.de", "missing name and matrikelnummer"),
+        (
+            "matrikelnummer=6083015&email=max%40student.uni-tuebingen.de",
+            "missing name",
+        ),
+        (
+            "email=max%40student.uni-tuebingen.de",
+            "missing name and matrikelnummer",
+        ),
         ("matrikelnummer=6083015", "missing name and email"),
         ("name=max%20muster", "missing email and matrikelnummer"),
         ("", "missing all"),
@@ -82,6 +109,11 @@ async fn create_user_returns_a_400_when_data_is_missing() {
 }
 
 async fn spawn_app() -> TestApp {
+    // Init test tracing only on first test run
+    Lazy::force(&TRACING);
+
+    // port '0' provides a random free port
+    // required for spawning multiple test instances without test collision
     let listener =
         std::net::TcpListener::bind("127.0.0.1:0").expect("Failed to bind to random port");
     let port = listener.local_addr().unwrap().port();
@@ -98,11 +130,14 @@ async fn spawn_app() -> TestApp {
 
     let _ = tokio::spawn(server);
 
-    TestApp { address, db_pool: connection_pool }
+    TestApp {
+        address,
+        db_pool: connection_pool,
+    }
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    let connection = PgPool::connect(&config.connection_string_without_db())
+    let connection = PgPool::connect(&config.connection_string_without_db().expose_secret())
         .await
         .expect("Failed to connect to postgres");
     connection
@@ -111,9 +146,13 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to create database");
 
     // Migrate Database
-    let connection_pool =
-        PgPool::connect(&config.connection_string()).await.expect("Failed to connect to Postgres.");
-    sqlx::migrate!("./migrations").run(&connection_pool).await.expect("Failed to migrate database");
+    let connection_pool = PgPool::connect(&config.connection_string().expose_secret())
+        .await
+        .expect("Failed to connect to Postgres.");
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .expect("Failed to migrate database");
 
     connection_pool
 }

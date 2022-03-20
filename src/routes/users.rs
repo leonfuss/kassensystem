@@ -15,6 +15,16 @@ pub async fn create_user(
     form: web::Form<AddUserFormData>,
     db_pool: web::Data<PgPool>,
 ) -> HttpResponse {
+    let request_id = uuid::Uuid::new_v4();
+    log::info!(
+        "request_id {} - Adding '{}-{}<{}>' as new user",
+        request_id,
+        form.matrikelnummer,
+        form.name,
+        form.email
+    );
+    log::info!("request_id {}, Saving new user details in the databse", request_id);
+
     match sqlx::query!(
         r#"
         INSERT INTO users (id, email, matrikelnummer, name, created_at)   
@@ -29,9 +39,12 @@ pub async fn create_user(
     .execute(db_pool.get_ref())
     .await
     {
-        Ok(_) => HttpResponse::Ok().finish(),
+        Ok(_) => {
+            log::info!("request_id {}, New users details have been saved", request_id);
+            HttpResponse::Ok().finish()
+        }
         Err(e) => {
-            println!("Failed to execute query: {}", e);
+            log::error!("request_id {}, Failed to execute query: {:?}", request_id, e);
             HttpResponse::InternalServerError().finish()
         }
     }

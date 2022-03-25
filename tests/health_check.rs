@@ -107,6 +107,51 @@ async fn create_user_returns_a_400_when_data_is_missing() {
     }
 }
 
+#[tokio::test]
+async fn create_user_returns_a_400_when_fields_are_present_but_empty() {
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let test_cases = vec![
+        (
+            "email=max%40student.uni-tuebingen.de&name=max%20muster&matrikelnummer=",
+            "empty matrikelnummer",
+        ),
+        ("matrikelnummer=6083015&name=max%20muster&email=", "empty email"),
+        (
+            "name=&matrikelnummer=6083015&email=max%40student.uni-tuebingen.de",
+            "empty name",
+        ),
+        (
+            "email=max%40student.uni-tuebingen.de&name=&matrikelnummer=",
+            "empty name and matrikelnummer",
+        ),
+        ("matrikelnummer=6083015name=&email=", "empty name and email"),
+        (
+            "name=max%20muster&email=&matrikelnummer=",
+            "empty email and matrikelnummer",
+        ),
+        ("name=&matrikelnummer=&email=", "all empty"),
+    ];
+
+    for (invalid_body, error_message) in test_cases {
+        let response = client
+            .post(&format!("{}/user/create", &app.address))
+            .header("content-type", "application/x-www-form-urlencoded")
+            .body(invalid_body)
+            .send()
+            .await
+            .expect("failed to execute request");
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not fail with 400 Bad Request when the payload was {}.",
+            error_message
+        );
+    }
+}
+
 async fn spawn_app() -> TestApp {
     // Init test tracing only on first test run
     Lazy::force(&TRACING);

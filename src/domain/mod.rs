@@ -4,4 +4,6 @@ mod user_matrikelnummer;
 mod user_name;
 
 pub use new_user::NewUser;
+pub use user_email::UserEmail;
+pub use user_matrikelnummer::UserMatrikelnummer;
 pub use user_name::UserName;

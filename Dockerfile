@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.59.0 AS chef
+FOM lukemathwalker/cargo-chef:latest-rust-1.59.0 AS chef
 
 # Switch to working directory - create if it does non exist
 WORKDIR /app

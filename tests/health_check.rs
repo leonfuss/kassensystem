@@ -117,7 +117,10 @@ async fn create_user_returns_a_400_when_fields_are_present_but_empty() {
             "email=max%40student.uni-tuebingen.de&name=max%20muster&matrikelnummer=",
             "empty matrikelnummer",
         ),
-        ("matrikelnummer=6083015&name=max%20muster&email=", "empty email"),
+        (
+            "matrikelnummer=6083015&name=max%20muster&email=",
+            "empty email",
+        ),
         (
             "name=&matrikelnummer=6083015&email=max%40student.uni-tuebingen.de",
             "empty name",

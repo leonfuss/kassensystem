@@ -1,9 +1,8 @@
+use super::{UserEmail, UserMatrikelnummer};
 use crate::domain::UserName;
 
 pub struct NewUser {
-    pub email: String,
+    pub email: UserEmail,
+    pub matrikelnummer: UserMatrikelnummer,
     pub name: UserName,
-    pub matrikelnummer: i32,
 }
-
-

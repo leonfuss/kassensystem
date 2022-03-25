@@ -3,13 +3,28 @@ use chrono::Utc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::{UserName, NewUser};
+use crate::domain::{NewUser, UserEmail, UserMatrikelnummer, UserName};
 
 #[derive(serde::Deserialize)]
 pub struct AddUserFormData {
     name: String,
     email: String,
     matrikelnummer: i32,
+}
+
+impl TryFrom<AddUserFormData> for NewUser {
+    type Error = String;
+
+    fn try_from(value: AddUserFormData) -> Result<Self, Self::Error> {
+        let name = UserName::parse(value.name)?;
+        let email = UserEmail::parse(value.email)?;
+        let matrikelnummer = UserMatrikelnummer::parse(value.matrikelnummer)?;
+        Ok(NewUser {
+            name,
+            email,
+            matrikelnummer,
+        })
+    }
 }
 
 #[post("/create")]
@@ -26,14 +41,9 @@ pub async fn create_user(
     form: web::Form<AddUserFormData>,
     db_pool: web::Data<PgPool>,
 ) -> HttpResponse {
-    let user_name = match UserName::parse(form.0.name) {
-        Ok(u) => u,
+    let new_user = match form.0.try_into() {
+        Ok(v) => v,
         Err(_) => return HttpResponse::BadRequest().finish(),
-    };
-    let new_user = NewUser {
-        email: form.0.email,
-        matrikelnummer: form.0.matrikelnummer,
-        name: user_name,
     };
 
     match insert_user(&db_pool, &new_user).await {
@@ -50,8 +60,8 @@ async fn insert_user(db_pool: &PgPool, user: &NewUser) -> Result<(), sqlx::Error
         VALUES($1, $2, $3, $4, $5)
     "#,
         Uuid::new_v4(),
-        user.email,
-        user.matrikelnummer,
+        user.email.as_ref(),
+        user.matrikelnummer.as_ref(),
         user.name.as_ref(),
         Utc::now()
     )

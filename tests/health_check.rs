@@ -24,6 +24,18 @@ pub struct TestApp {
     pub db_pool: PgPool,
 }
 
+impl TestApp {
+    pub async fn post_crate_user(&self, body: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(&format!("{}/user/create", &self.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+}
+
 #[tokio::test]
 async fn health_check_works() {
     let app = spawn_app().await;
@@ -42,16 +54,9 @@ async fn health_check_works() {
 #[tokio::test]
 async fn create_user_returns_a_200_for_vaild_form_data() {
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
 
     let body = "matrikelnummer=6083015&email=max%40student.uni-tuebingen.de&name=Max%20Muster";
-    let response = client
-        .post(&format!("{}/user/create", &app.address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .expect("Failed to execute request");
+    let response = app.post_crate_user(body.into()).await;
 
     assert_eq!(200, response.status().as_u16());
 
@@ -68,7 +73,6 @@ async fn create_user_returns_a_200_for_vaild_form_data() {
 #[tokio::test]
 async fn create_user_returns_a_400_when_data_is_missing() {
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
 
     let test_cases = vec![
         (
@@ -90,14 +94,7 @@ async fn create_user_returns_a_400_when_data_is_missing() {
     ];
 
     for (invalid_body, error_message) in test_cases {
-        let response = client
-            .post(&format!("{}/user/create", &app.address))
-            .header("content-type", "application/x-www-form-urlencoded")
-            .body(invalid_body)
-            .send()
-            .await
-            .expect("failed to execute request");
-
+        let response = app.post_crate_user(invalid_body.into()).await;
         assert_eq!(
             400,
             response.status().as_u16(),
@@ -108,7 +105,7 @@ async fn create_user_returns_a_400_when_data_is_missing() {
 }
 
 #[tokio::test]
-async fn create_user_returns_a_400_when_fields_are_present_but_empty() {
+async fn create_user_returns_a_400_when_fields_are_present_but_empty(){
     let app = spawn_app().await;
     let client = reqwest::Client::new();
 
@@ -153,6 +150,23 @@ async fn create_user_returns_a_400_when_fields_are_present_but_empty() {
             error_message
         );
     }
+}
+
+async fn transaction_login(){
+    todo!()
+}
+
+#[tokio::test]
+async fn authenticate_before_add_to_card(){
+    let app = spawn_app().await;
+
+    let response = reqwest::Client::new()
+        .post(&format!("{}/card", &app.address))
+        .send()
+        .await
+        .expect("Failed to execute request");
+
+    assert_eq!(401, response.status().as_u16());
 }
 
 async fn spawn_app() -> TestApp {

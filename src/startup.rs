@@ -13,6 +13,7 @@ pub fn run(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Er
             .wrap(Logger::default())
             .route("/health_check", web::get().to(routes::health_check))
             .service(web::scope("/user").service(routes::create_user))
+            .service(routes::login)
             .app_data(connection.clone())
     })
     .listen(listener)?

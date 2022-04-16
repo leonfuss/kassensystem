@@ -41,19 +41,14 @@ pub async fn create_user(
     form: web::Form<AddUserFormData>,
     db_pool: web::Data<PgPool>,
 ) -> HttpResponse {
-    let new_user = match form.0.try_into() {
-        Ok(v) => v,
-        Err(_) => return HttpResponse::BadRequest().finish(),
-    };
-
-    match insert_user(&db_pool, &new_user).await {
+    match insert_user(&db_pool, &form).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
 
-#[tracing::instrument(name = "Saving new user details in the Database", skip(user, db_pool))]
-async fn insert_user(db_pool: &PgPool, user: &NewUser) -> Result<(), sqlx::Error> {
+#[tracing::instrument(name = "Saving new user details in the Database", skip(form, db_pool))]
+async fn insert_user(db_pool: &PgPool, form: &AddUserFormData) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"
         INSERT INTO users (id, email, matrikelnummer, name, created_at)   
